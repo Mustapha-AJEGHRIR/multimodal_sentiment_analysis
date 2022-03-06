@@ -99,6 +99,8 @@ def load_audio(audio_path):
         audio = audio.astype(np.float32) / 2**15
     elif audio.dtype != np.float32:
         raise ValueError('Unexpected datatype. Model expects sound samples to lie in [-1, 1]')
+    if len(audio.shape) == 2:
+        audio = audio.mean(axis=1)
     return audio, sample_rate
 # ---------------------------------------------------------------------------- #
 #                            Define main dataloader                            #

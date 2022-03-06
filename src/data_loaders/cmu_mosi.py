@@ -39,6 +39,7 @@ BATCH_SIZE = 16
 # ---------------------------------------------------------------------------- #
 DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/CMU_MOSI/')
 VIDEO_PATH = os.path.join(DATA_PATH, 'Video/Segmented')
+AUDIO_PATH = os.path.join(DATA_PATH, 'Audio/WAV_16000/Segmented')
 LABELS_PATH = os.path.join(DATA_PATH, 'CMU_MOSI_Opinion_Labels.csd')
 
 if not os.path.exists(DATA_PATH):
@@ -63,7 +64,7 @@ def extract_labels(labels_path=LABELS_PATH):
     full_files = list(labels_csd_data.keys())
     for file in full_files:
         file_labels = list(np.array(labels_csd_data[file].get("features"))[:,0])
-        sequence_names += [file.split(".")[0] + "_" + str(i+1) + ".mp4" for i in range(len(file_labels))]
+        sequence_names += [file.split(".")[0] + "_" + str(i+1) for i in range(len(file_labels))]
         sequence_labels += file_labels
         
     return sequence_names, sequence_labels
@@ -91,6 +92,14 @@ def load_video(video_path, max_frames = 16, resize=(224, 224), color_space=cv2.C
         else :
             cap.release()
     return np.array(frames).astype(I8)
+
+def load_audio(audio_path):
+    sample_rate, audio = scipy.io.wavfile.read(os.path.join(AUDIO_PATH, audio_path))
+    if audio.dtype == np.int16:
+        audio = audio.astype(np.float32) / 2**15
+    elif audio.dtype != np.float32:
+        raise ValueError('Unexpected datatype. Model expects sound samples to lie in [-1, 1]')
+    return audio, sample_rate
 # ---------------------------------------------------------------------------- #
 #                            Define main dataloader                            #
 # ---------------------------------------------------------------------------- #
@@ -127,16 +136,23 @@ class CMU_MOSI(Dataset):
         else :
             raise Exception("Unknown split name, please use : 'training', 'validation' or None")
 
-        self.video_seqences = []
+        self.video_sequences = []
+        self.audio_sequences = []
         for seq_name in tqdm(self.sequence_names, desc="Caching videos for " + str(self.split) + " split"):
-            frames = load_video(seq_name, max_frames=self.max_frames, resize=self.resize, color_space=self.color_space)
+            frames = load_video(seq_name + ".mp4", max_frames=self.max_frames, resize=self.resize, color_space=self.color_space)
             # print("frames: ", frames.max(), frames.min())
-            self.video_seqences.append(frames)
+            self.video_sequences.append(frames)
+
+            audio, sample_rate = load_audio(seq_name + ".wav")
+            assert sample_rate == 16000 # FIXME : remove me later, note efficient !
+            self.audio_sequences.append(audio)
         
         
     def __getitem__(self, index):
-        video_seq = self.video_seqences[index] / self.devide_images_with
-        return video_seq.astype(self.output_type), self.sequence_labels[index]
+        video_seq = self.video_sequences[index] / self.devide_images_with
+        return (video_seq.astype(self.output_type),
+                self.audio_sequences[index].astype(self.output_type),
+                self.sequence_labels[index])
 
     def __len__(self):
         return len(self.sequence_names)

@@ -32,7 +32,7 @@ FTYPE = F32
 I8 = np.uint8 # unsigned integer 8 bits
 
 TRAIN_SPLIT = 0.8
-BATCH_SIZE = 16
+BATCH_SIZE = 4
 
 # ---------------------------------------------------------------------------- #
 #                           Verify data availability                           #
@@ -114,6 +114,7 @@ class CMU_MOSI(Dataset):
                 max_frames = 0, # 0 means no limit
                 resize = (224, 224),
                 output_type = FTYPE,
+                debugging = False,
                 **kwargs
                 ):
         self.split = split
@@ -126,6 +127,9 @@ class CMU_MOSI(Dataset):
 
         
         self.sequence_names, self.sequence_labels = extract_labels()
+        if debugging :
+            self.sequence_labels = self.sequence_labels[:50]
+            self.sequence_names = self.sequence_names[:50]
         train_sequence_names, val_sequence_names, train_sequence_labels, val_sequence_labels = train_test_split(self.sequence_names, self.sequence_labels, train_size=train_split, random_state=42)
         if self.split == "training":
             self.sequence_names = train_sequence_names

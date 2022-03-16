@@ -3,6 +3,7 @@
 
 ## CMU_MOSI
 `Language = English`
+`Emotions positive or negative over [-3,3] (regression)`
 Download dataset :
 ```bash
 $ cd data 
@@ -15,6 +16,7 @@ You can then use the `src.data_loaders.cmu_mosi.py` file to import the dataset ð
 ## AESDD
 Acted Emotional Speech Dynamic Database, for more information please refer to the [main site](http://m3c.web.auth.gr/research/aesdd-speech-emotion-recognition/) for this dataset.
 `Language = Greek`
+`5 emotions : ['anger', 'disgust', 'fear', 'happiness', 'sadness']`
 Donwload dataset :
 
 ```bash

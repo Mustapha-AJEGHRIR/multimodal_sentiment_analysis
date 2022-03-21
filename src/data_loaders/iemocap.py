@@ -20,6 +20,15 @@ import json
 from tqdm import tqdm
 
 
+# ---------------------------------- Warning --------------------------------- #
+print("This version of the dataloader is loading :")
+print("\t\t-Audio for each sequence")
+print("\t\t-Label for each sequence")
+print("Future versions might include :")
+print("\t\t-Video for each sequence")
+print("\t\t-text for each sequence")
+
+
 # ---------------------------------------------------------------------------- #
 #                                   Constants                                  #
 # ---------------------------------------------------------------------------- #
@@ -36,10 +45,9 @@ BATCH_SIZE = 4
 # ---------------------------------------------------------------------------- #
 #                           Verify data availability                           #
 # ---------------------------------------------------------------------------- #
-DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/CMU_MOSI/')
-VIDEO_PATH = os.path.join(DATA_PATH, 'Video/Segmented')
-AUDIO_PATH = os.path.join(DATA_PATH, 'Audio/WAV_16000/Segmented')
-LABELS_PATH = os.path.join(DATA_PATH, 'CMU_MOSI_Opinion_Labels.csd')
+DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/iemocap/')
+AUDIO_PATH = os.path.join(DATA_PATH, 'session1-sentences-wav')
+LABELS_PATH = os.path.join(DATA_PATH, '')
 
 if not os.path.exists(DATA_PATH):
     raise Exception("Data path does not exist, donwload the data using the 'data/get_CMU_MOSI.sh' script")
@@ -53,44 +61,6 @@ else :
 # ---------------------------------------------------------------------------- #
 #                                     Utils                                    #
 # ---------------------------------------------------------------------------- #
-def extract_labels(labels_path=LABELS_PATH):
-    """
-    Extracts the labels from the csd file
-    """
-    sequence_names = []
-    sequence_labels = []
-    labels_csd_data = h5py.File(labels_path, 'r').get("Opinion Segment Labels").get("data")
-    full_files = list(labels_csd_data.keys())
-    for file in full_files:
-        file_labels = list(np.array(labels_csd_data[file].get("features"))[:,0])
-        sequence_names += [file.split(".")[0] + "_" + str(i+1) for i in range(len(file_labels))]
-        sequence_labels += file_labels
-        
-    return sequence_names, sequence_labels
-
-def crop_center_square(frame):
-    y, x = frame.shape[0:2]
-    min_dim = min(y, x)
-    start_x = (x // 2) - (min_dim // 2)
-    start_y = (y // 2) - (min_dim // 2)
-    return frame[start_y:start_y+min_dim,start_x:start_x+min_dim]
-
-def load_video(video_path, max_frames = 16, resize=(224, 224), color_space=cv2.COLOR_BGR2RGB):
-    cap = cv2.VideoCapture(os.path.join(VIDEO_PATH, video_path))
-    frames = []
-    while(cap.isOpened()):
-        ret, frame = cap.read()
-        if ret:
-            frame = crop_center_square(frame)
-            frame = cv2.resize(frame, resize)
-            frame = cv2.cvtColor(frame, color_space)
-            frames.append(frame)
-            if len(frames) == max_frames:
-                cap.release()
-                break
-        else :
-            cap.release()
-    return np.array(frames).astype(I8)
 
 def load_audio(audio_path):
     sample_rate, audio = scipy.io.wavfile.read(os.path.join(AUDIO_PATH, audio_path))
@@ -98,29 +68,25 @@ def load_audio(audio_path):
         audio = audio.astype(np.float32) / 2**15
     elif audio.dtype != np.float32:
         raise ValueError('Unexpected datatype. Model expects sound samples to lie in [-1, 1]')
-    if len(audio.shape) == 2:
+    if len(audio.shape) == 2: # stereo
         audio = audio.mean(axis=1)
     return audio, sample_rate
 # ---------------------------------------------------------------------------- #
 #                            Define main dataloader                            #
 # ---------------------------------------------------------------------------- #
 
-class CMU_MOSI(Dataset):
+class IEMOCAP(Dataset):
     def __init__(self,
                 split = None, # Could be "training" or "val"
                 train_split = TRAIN_SPLIT,
-                color_space = cv2.COLOR_BGR2GRAY,
-                max_frames = 0, # 0 means no limit
-                resize = (224, 224),
                 output_type = FTYPE,
                 debugging = False,
+                annotators = 0, # 0 for all, 1 for annotator 1, 2 for annotator 2, 3 for annotator 3
                 **kwargs
                 ):
         self.split = split
-        self.color_space = color_space
+        self.annotators = annotators
         self.train_split = train_split
-        self.max_frames = max_frames
-        self.resize = resize
         self.devide_images_with = 255.0
         self.output_type = output_type
 

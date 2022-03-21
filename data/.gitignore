@@ -2,3 +2,9 @@
 CMU_MOSI*
 CMU_MOSEI
 aesdd
+iemocap
+
+# No zip files
+*.zip
+
+

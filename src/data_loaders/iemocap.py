@@ -6,6 +6,10 @@
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 import numpy as np
+import collections
+import pandas as pd
+# from datasets import load_dataset
+# import torchaudio
 
 # -------------------------- Signal and media stuff -------------------------- #
 import scipy
@@ -15,7 +19,7 @@ import cv2
 
 # ----------------------------------- Other ---------------------------------- #
 import os
-import h5py
+from glob import glob
 import json
 from tqdm import tqdm
 
@@ -45,22 +49,49 @@ BATCH_SIZE = 4
 # ---------------------------------------------------------------------------- #
 #                           Verify data availability                           #
 # ---------------------------------------------------------------------------- #
+SAVE_TMP_PATH = "tmp"
 DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/iemocap/')
 AUDIO_PATH = os.path.join(DATA_PATH, 'session1-sentences-wav')
-LABELS_PATH = os.path.join(DATA_PATH, '')
+LABELS_PATH = os.path.join(DATA_PATH, 'session1-dialog-EmoEvaluation/Categorical')
 
 if not os.path.exists(DATA_PATH):
-    raise Exception("Data path does not exist, donwload the data using the 'data/get_CMU_MOSI.sh' script")
+    raise Exception("Data path does not exist, donwload the data please, it is under licence")
 else :
-    for path in [VIDEO_PATH, LABELS_PATH]:
+    for path in [AUDIO_PATH, LABELS_PATH]:
         if not os.path.exists(path):
-            raise Exception("Data not correctly downloaded, please follow the correct instructions for 'data/get_CMU_MOSI.sh' script")
+            raise Exception("Data not correctly  structered")
 
 
 
 # ---------------------------------------------------------------------------- #
 #                                     Utils                                    #
 # ---------------------------------------------------------------------------- #
+# def speech_file_to_array_fn(path):
+#     speech_array, sampling_rate = torchaudio.load(path)
+#     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
+#     speech = resampler(speech_array).squeeze().numpy()
+#     return speech
+
+# def label_to_id(label, label_list):
+
+#     if len(label_list) > 0:
+#         return label_list.index(label) if label in label_list else -1
+
+#     return label
+
+# def preprocess_function(examples):
+#     speech_list = [speech_file_to_array_fn(path) for path in examples["path"]]
+#     target_list = [label_to_id(label, label_list) for label in examples["emotion"]]
+
+#     result = processor(speech_list, sampling_rate=target_sampling_rate)
+#     result["labels"] = list(target_list)
+#     # print(result.keys())
+
+#     return result
+
+def most_frequent(List):
+    occurence_count = collections.Counter(List)
+    return occurence_count.most_common(1)[0][0]
 
 def load_audio(audio_path):
     sample_rate, audio = scipy.io.wavfile.read(os.path.join(AUDIO_PATH, audio_path))
@@ -77,76 +108,105 @@ def load_audio(audio_path):
 
 class IEMOCAP(Dataset):
     def __init__(self,
-                split = None, # Could be "training" or "val"
-                train_split = TRAIN_SPLIT,
                 output_type = FTYPE,
                 debugging = False,
-                annotators = 0, # 0 for all, 1 for annotator 1, 2 for annotator 2, 3 for annotator 3
+                best_label_only = True,
+                return_path = True,
+                # annotators = 0, # 0 for all, 1 for annotator 1, 2 for annotator 2, 3 for annotator 3
                 **kwargs
                 ):
-        self.split = split
-        self.annotators = annotators
-        self.train_split = train_split
+        if not return_path:
+            raise Exception("Not yet implemented")
+        self.best_label_only = best_label_only
+        # self.annotators = annotators
         self.devide_images_with = 255.0
         self.output_type = output_type
 
         
-        self.sequence_names, self.sequence_labels = extract_labels()
-        if debugging :
-            self.sequence_labels = self.sequence_labels[:50]
-            self.sequence_names = self.sequence_names[:50]
-        train_sequence_names, val_sequence_names, train_sequence_labels, val_sequence_labels = train_test_split(self.sequence_names, self.sequence_labels, train_size=train_split, random_state=42)
-        if self.split == "training":
-            self.sequence_names = train_sequence_names
-            self.sequence_labels = train_sequence_labels
-        elif self.split == "validation":
-            self.sequence_names = val_sequence_names
-            self.sequence_labels = val_sequence_labels
-        elif self.split == None:
-            pass
-        else :
-            raise Exception("Unknown split name, please use : 'training', 'validation' or None")
-
-        self.video_sequences = []
-        self.audio_sequences = []
-        for seq_name in tqdm(self.sequence_names, desc="Caching videos for " + str(self.split) + " split"):
-            frames = load_video(seq_name + ".mp4", max_frames=self.max_frames, resize=self.resize, color_space=self.color_space)
-            # print("frames: ", frames.max(), frames.min())
-            self.video_sequences.append(frames)
-
-            audio, sample_rate = load_audio(seq_name + ".wav")
-            assert sample_rate == 16000 # FIXME : remove me later, note efficient !
-            self.audio_sequences.append(audio)
+        self.sentences_names = sorted(glob(os.path.join(AUDIO_PATH, '*/*.wav')))
+        self.all_labels_names = sorted(glob(os.path.join(LABELS_PATH, '*.txt')))
+        self.all_labels = collections.defaultdict(list)
         
+        self.audio = []
+        self.labels = []
         
+        # ------------------------------ Extract labels ------------------------------ #
+        for label_file in self.all_labels_names:
+            with open(label_file, 'r') as f:
+                all_lines = f.readlines()
+                for line in all_lines :
+                    line = line.strip()
+                    annotation_count = line.count(":")
+                    for i in range(annotation_count):
+                        annotation = line.split(":")[i+1]
+                        annotation = annotation.split(";")[0]
+                        self.all_labels[line.split(" ")[0]].append(annotation)
+
+
+        # ----------------------------------- label ---------------------------------- #
+        for sentence_name in self.sentences_names:
+            base_name = os.path.basename(sentence_name).split('.')[0]
+            # assert base_name in self.all_labels.keys()
+            
+            labelisations = self.all_labels[base_name]
+            if self.best_label_only:
+                label = most_frequent(labelisations)
+
+            self.labels.append(label)
+            
+        # # -------------------------------- load audio -------------------------------- #
+        # for sentence_name in self.sentences_names:
+        #     audio, sample_rate = load_audio(sentence_name)
+        #     self.audio.append(audio)
+        
+
+        # self.video_sequences = []
+        # self.audio_sequences = []
+
     def __getitem__(self, index):
-        video_seq = self.video_sequences[index] / self.devide_images_with
-        return (video_seq.astype(self.output_type),
-                self.audio_sequences[index].astype(self.output_type),
-                self.sequence_labels[index])
+        return self.sentences_names[index], self.labels[index]
 
     def __len__(self):
-        return len(self.sequence_names)
+        return len(self.sentences_names)
 
 
 def get_train_val(**kwargs):
-    if "BATCH_SIZE" in kwargs:
-        batch_size = kwargs["BATCH_SIZE"]
-    else :
-        batch_size = BATCH_SIZE
+    dataset = IEMOCAP(**kwargs)
+    df = pd.DataFrame([dataset.sentences_names, dataset.labels]).T
+    df.columns = ['path', 'emotion']
+    print("Found labels : ", df.emotion.unique())
+    
+    
+    # train_df, test_df = train_test_split(df, test_size=1-TRAIN_SPLIT, random_state=42, stratify=["emotion"])
+    
+    # train_df = train_df.reset_index(drop=True)
+    # test_df = test_df.reset_index(drop=True)
+    
+    
+    # train_df.to_csv(f"{SAVE_TMP_PATH}/train.csv", sep="\t", encoding="utf-8", index=False)
+    # test_df.to_csv(f"{SAVE_TMP_PATH}/test.csv", sep="\t", encoding="utf-8", index=False)
+    
+    # data_files = {
+    #     "train": f"{SAVE_TMP_PATH}/train.csv", 
+    #     "validation": f"{SAVE_TMP_PATH}/test.csv",
+    # }
+    
+    # dataset = load_dataset("csv", data_files=data_files, delimiter="\t", )
+    # train_dataset = dataset["train"]
+    # eval_dataset = dataset["validation"]
+    return df
+    
+    
 
-    train = CMU_MOSI(split="training", **kwargs)
-    val = CMU_MOSI(split="validation", **kwargs)
-
-    train_loader = DataLoader(train, batch_size=batch_size, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val, batch_size=batch_size, shuffle=True, num_workers=4)
-
-    return train_loader, val_loader
+    
+    
     
 
 
 
 if  __name__ == "__main__":
     print("Debuging ...")
-    dataset = CMU_MOSI()
+    dataset = IEMOCAP()
     print("Dataset loaded")
+    get_train_val()
+    print("__main__ done")

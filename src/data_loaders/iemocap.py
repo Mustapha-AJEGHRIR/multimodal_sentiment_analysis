@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 # --------------------------- Cross platform stuff --------------------------- #
 from dotenv import load_dotenv
-load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env_consts'))
+# load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env_consts'))
 
 
 # ---------------------------------- Warning --------------------------------- #
@@ -57,8 +57,8 @@ BATCH_SIZE = 4
 # ---------------------------------------------------------------------------- #
 SAVE_TMP_PATH = "tmp"
 # read local variable if they contain data_path
-DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/iemocap/')
-DATA_PATH = os.getenv("DATA_PATH", DEFAULT_DATA_PATH)
+DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/')
+DATA_PATH = os.path.joine(os.getenv("TMPDIR", DEFAULT_DATA_PATH), "iemocap/")
 AUDIO_PATH = os.path.join(DATA_PATH, 'session1-sentences-wav')
 LABELS_PATH = os.path.join(DATA_PATH, 'session1-dialog-EmoEvaluation/Categorical')
 

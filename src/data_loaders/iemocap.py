@@ -4,7 +4,8 @@
 # ----------------------------- Datascience stuff ---------------------------- #
 # import torch
 from platform import platform
-from torch.utils.data import Dataset, DataLoader
+# from torch.utils.data import Dataset, DataLoader
+import torch.utils.data as tdata
 from sklearn.model_selection import train_test_split
 import numpy as np
 import collections
@@ -114,7 +115,7 @@ def load_audio(audio_path):
 #                            Define main dataloader                            #
 # ---------------------------------------------------------------------------- #
 
-class IEMOCAP(Dataset):
+class IEMOCAP(tdata.Dataset):
     def __init__(self,
                 output_type = FTYPE,
                 debugging = False,

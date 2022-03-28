@@ -58,7 +58,7 @@ BATCH_SIZE = 4
 SAVE_TMP_PATH = "tmp"
 # read local variable if they contain data_path
 DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/')
-DATA_PATH = os.path.joine(os.getenv("TMPDIR", DEFAULT_DATA_PATH), "iemocap/")
+DATA_PATH = os.path.join(os.getenv("TMPDIR", DEFAULT_DATA_PATH), "iemocap/")
 AUDIO_PATH = os.path.join(DATA_PATH, 'session1-sentences-wav')
 LABELS_PATH = os.path.join(DATA_PATH, 'session1-dialog-EmoEvaluation/Categorical')
 

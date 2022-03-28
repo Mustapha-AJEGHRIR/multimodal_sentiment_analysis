@@ -3,6 +3,7 @@
 # ---------------------------------------------------------------------------- #
 # ----------------------------- Datascience stuff ---------------------------- #
 # import torch
+from platform import platform
 from torch.utils.data import Dataset, DataLoader
 from sklearn.model_selection import train_test_split
 import numpy as np
@@ -15,7 +16,7 @@ import pandas as pd
 import scipy
 from scipy.io import wavfile
 import scipy.signal
-import cv2
+# import cv2
 
 # ----------------------------------- Other ---------------------------------- #
 import os
@@ -23,13 +24,18 @@ from glob import glob
 import json
 from tqdm import tqdm
 
+# --------------------------- Cross platform stuff --------------------------- #
+from dotenv import load_dotenv
+load_dotenv(".env_consts")
+
 
 # ---------------------------------- Warning --------------------------------- #
 print("This version of the dataloader is loading :")
-print("\t\t-Audio for each sequence")
+print("\t\t-Audio Path for each sequence")
 print("\t\t-Label for each sequence")
 print("Future versions might include :")
-print("\t\t-Video for each sequence")
+print("\t\t-Audio for each sequence")
+print("\t\t-Video Path for each sequence")
 print("\t\t-text for each sequence")
 
 
@@ -50,7 +56,9 @@ BATCH_SIZE = 4
 #                           Verify data availability                           #
 # ---------------------------------------------------------------------------- #
 SAVE_TMP_PATH = "tmp"
-DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/iemocap/')
+# read local variable if they contain data_path
+DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/iemocap/')
+DATA_PATH = os.getenv("DATA_PATH", DEFAULT_DATA_PATH)
 AUDIO_PATH = os.path.join(DATA_PATH, 'session1-sentences-wav')
 LABELS_PATH = os.path.join(DATA_PATH, 'session1-dialog-EmoEvaluation/Categorical')
 
@@ -170,10 +178,12 @@ class IEMOCAP(Dataset):
         return len(self.sentences_names)
 
 
-def get_train_val(**kwargs):
+def get_data(**kwargs):
     dataset = IEMOCAP(**kwargs)
     df = pd.DataFrame([dataset.sentences_names, dataset.labels]).T
     df.columns = ['path', 'emotion']
+    df["name"] = df["path"].apply(lambda x: os.path.basename(x).split('.')[0])
+    df = df[["name", "path", "emotion"]]
     print("Found labels : ", df.emotion.unique())
     
     
@@ -196,11 +206,6 @@ def get_train_val(**kwargs):
     # eval_dataset = dataset["validation"]
     return df
     
-    
-
-    
-    
-    
 
 
 
@@ -208,5 +213,5 @@ if  __name__ == "__main__":
     print("Debuging ...")
     dataset = IEMOCAP()
     print("Dataset loaded")
-    get_train_val()
+    df = get_data()
     print("__main__ done")

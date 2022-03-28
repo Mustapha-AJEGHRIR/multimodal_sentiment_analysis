@@ -25,7 +25,7 @@ import json
 from tqdm import tqdm
 
 # --------------------------- Cross platform stuff --------------------------- #
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 # load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env_consts'))
 
 

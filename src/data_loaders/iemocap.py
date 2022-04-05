@@ -59,17 +59,16 @@ BATCH_SIZE = 4
 SAVE_TMP_PATH = "tmp"
 # read local variable if they contain data_path
 DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/')
-DATA_PATH = os.path.join(os.getenv("TMPDIR", DEFAULT_DATA_PATH), "iemocap/")
+DATA_PATH = os.path.join(os.getenv("DATADIR", DEFAULT_DATA_PATH), "iemocap/")
 AUDIO_PATH = os.path.join(DATA_PATH, 'session1-sentences-wav')
 LABELS_PATH = os.path.join(DATA_PATH, 'session1-dialog-EmoEvaluation/Categorical')
 
 if not os.path.exists(DATA_PATH):
-    raise Exception("Data path does not exist, donwload the data please, it is under licence")
+    raise Exception(f"Data path {DATA_PATH} does not exist, donwload the data please, it is under licence")
 else :
     for path in [AUDIO_PATH, LABELS_PATH]:
         if not os.path.exists(path):
-            raise Exception("Data not correctly  structered")
-
+            raise Exception(f"Path {path} does not exist, make sure the data is correctly extracted")
 
 
 # ---------------------------------------------------------------------------- #

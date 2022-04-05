@@ -23,6 +23,7 @@ import scipy.signal
 import os
 from glob import glob
 import json
+import regex as re
 from tqdm import tqdm
 
 # --------------------------- Cross platform stuff --------------------------- #
@@ -61,6 +62,7 @@ SAVE_TMP_PATH = "tmp"
 DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), '../../data/')
 DATA_PATH = os.path.join(os.getenv("DATADIR", DEFAULT_DATA_PATH), "iemocap/")
 AUDIO_PATH = os.path.join(DATA_PATH, 'session1-sentences-wav')
+TRANSCRIPT_PATH = os.path.join(DATA_PATH, 'session1-dialog-transcriptions')
 LABELS_PATH = os.path.join(DATA_PATH, 'session1-dialog-EmoEvaluation/Categorical')
 
 if not os.path.exists(DATA_PATH):
@@ -131,12 +133,14 @@ class IEMOCAP(tdata.Dataset):
         self.output_type = output_type
 
         
-        self.sentences_names = sorted(glob(os.path.join(AUDIO_PATH, '*/*.wav')))
         self.all_labels_names = sorted(glob(os.path.join(LABELS_PATH, '*.txt')))
+        self.audio_paths = sorted(glob(os.path.join(AUDIO_PATH, '*/*.wav')))
+        self.text_paths = sorted(glob(os.path.join(TRANSCRIPT_PATH, '*.txt')))
+
         self.all_labels = collections.defaultdict(list)
         
-        self.audio = []
-        self.labels = []
+        # self.audio = []
+        self.data = {}
         
         # ------------------------------ Extract labels ------------------------------ #
         for label_file in self.all_labels_names:
@@ -152,16 +156,33 @@ class IEMOCAP(tdata.Dataset):
 
 
         # ----------------------------------- label ---------------------------------- #
-        for sentence_name in self.sentences_names:
-            base_name = os.path.basename(sentence_name).split('.')[0]
+        for audio_path in self.audio_paths:
+            base_name = os.path.basename(audio_path).split('.')[0]
             # assert base_name in self.all_labels.keys()
             
             labelisations = self.all_labels[base_name]
             if self.best_label_only:
                 label = most_frequent(labelisations)
 
-            self.labels.append(label)
+            self.data[base_name] = {
+                "seq_id": base_name,
+                "emotion": label,
+                "audio_path": audio_path,
+            }
             
+        # # -------------------------------- load text -------------------------------- #
+        for text_path in self.text_paths:
+            with open(text_path, 'r') as f:
+                for line in f.readlines():  # list of "<seq_id> [<start_time>-<end_time>]: Excuse me.\n"
+                    line = line.strip()
+                    if re.match(r'(\w+)\s+\[([\d\.]+)-([\d\.]+)\]:\s+(.*)', line):
+                        seq_id, start_time, end_time, text = re.match(r'(\w+)\s+\[([\d\.]+)-([\d\.]+)\]:\s+(.*)', line).groups()
+                        self.data[seq_id]["start_time"] = start_time
+                        self.data[seq_id]["end_time"] = end_time
+                        self.data[seq_id]["text"] = text
+                    
+
+
         # # -------------------------------- load audio -------------------------------- #
         # for sentence_name in self.sentences_names:
         #     audio, sample_rate = load_audio(sentence_name)
@@ -170,21 +191,20 @@ class IEMOCAP(tdata.Dataset):
 
         # self.video_sequences = []
         # self.audio_sequences = []
+        self.indexer = {i: seq_id for i, seq_id in enumerate(self.data.keys())}
 
     def __getitem__(self, index):
-        return self.sentences_names[index], self.labels[index]
+        return self.data[self.indexer[index]]
 
     def __len__(self):
-        return len(self.sentences_names)
+        return len(self.data)
 
 
 def get_data(**kwargs):
     dataset = IEMOCAP(**kwargs)
-    df = pd.DataFrame([dataset.sentences_names, dataset.labels]).T
-    df.columns = ['path', 'emotion']
-    df["name"] = df["path"].apply(lambda x: os.path.basename(x).split('.')[0])
-    df = df[["name", "path", "emotion"]]
+    df = pd.DataFrame(dataset.data.values())
     print("Found labels : ", df.emotion.unique())
+    print(df.head())
     
     
     # train_df, test_df = train_test_split(df, test_size=1-TRAIN_SPLIT, random_state=42, stratify=["emotion"])

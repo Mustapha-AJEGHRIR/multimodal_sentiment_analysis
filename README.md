@@ -1,6 +1,15 @@
 # multimodal_sentiment_analysis
 
 
+## IEMOCAP
+Download dataset.
+Extract the folder named `iemocap`.
+Set the environment variable `DATADIR` to the folder containing `iemocap`.
+```bash
+export DATADIR="<data_dir>"
+```
+```
+
 ## CMU_MOSI
 `Language = English`
 `Emotions positive or negative over [-3,3] (regression)`

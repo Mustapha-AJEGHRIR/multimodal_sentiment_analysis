@@ -2,12 +2,10 @@
 #                                    Imports                                   #
 # ---------------------------------------------------------------------------- #
 # ----------------------------- Datascience stuff ---------------------------- #
-# import torch
-from platform import platform
 
 # from torch.utils.data import Dataset, DataLoader
 import torch.utils.data as tdata
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
 import numpy as np
 import collections
 import pandas as pd
@@ -17,7 +15,7 @@ import pandas as pd
 
 # -------------------------- Signal and media stuff -------------------------- #
 import scipy
-from scipy.io import wavfile
+# from scipy.io import wavfile
 import scipy.signal
 
 # import cv2
@@ -25,9 +23,9 @@ import scipy.signal
 # ----------------------------------- Other ---------------------------------- #
 import os
 from glob import glob
-import json
+# import json
 import regex as re
-from tqdm import tqdm
+# from tqdm import tqdm
 
 # --------------------------- Cross platform stuff --------------------------- #
 # from dotenv import load_dotenv
@@ -36,12 +34,13 @@ from tqdm import tqdm
 
 # ---------------------------------- Warning --------------------------------- #
 print("This version of the dataloader is loading :")
-print("\t\t-Audio Path for each sequence")
 print("\t\t-Label for each sequence")
+print("\t\t-Audio Path for each sequence")
+print("\t\t-Start and end time for each sequence")
+print("\t\t-text for each sequence")
 print("Future versions might include :")
 print("\t\t-Audio for each sequence")
 print("\t\t-Video Path for each sequence")
-print("\t\t-text for each sequence")
 
 
 # ---------------------------------------------------------------------------- #
@@ -63,8 +62,9 @@ BATCH_SIZE = 4
 SAVE_TMP_PATH = "tmp"
 # read local variable if they contain data_path
 DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), "../../data/")
-DEFAULT_DATA_PATH = "/mnt/d/OneDrive/OneDrive - CentraleSupelec/"  # TODO
-DATA_PATH = os.path.join(os.getenv("DATADIR", DEFAULT_DATA_PATH), "iemocap/")
+# DEFAULT_DATA_PATH = "/mnt/d/OneDrive/OneDrive - CentraleSupelec/"  # TODO
+DATA_PATH = os.path.join(os.getenv("TMPDIR", DEFAULT_DATA_PATH), "iemocap/")
+# DATA_PATH = os.path.join(os.getenv("DATADIR", DEFAULT_DATA_PATH), "iemocap/")
 AUDIO_PATH = os.path.join(DATA_PATH, "session1-sentences-wav")
 TRANSCRIPT_PATH = os.path.join(DATA_PATH, "session1-dialog-transcriptions")
 LABELS_PATH = os.path.join(DATA_PATH, "session1-dialog-EmoEvaluation/Categorical")
@@ -139,7 +139,7 @@ class IEMOCAP(tdata.Dataset):
             raise Exception("Not yet implemented")
         self.best_label_only = True
         # self.annotators = annotators
-        self.devide_images_with = 255.0
+        # self.devide_images_with = 255.0
         self.output_type = output_type
 
         self.all_labels_names = sorted(glob(os.path.join(LABELS_PATH, "*.txt")))
@@ -169,7 +169,7 @@ class IEMOCAP(tdata.Dataset):
                         label = most_frequent(labelisations)
 
                     self.data[seq_id] = {
-                        "seq_id": seq_id,
+                        "name": seq_id,
                         "emotion": label,
                     }
 
@@ -178,9 +178,7 @@ class IEMOCAP(tdata.Dataset):
             base_name = os.path.basename(audio_path).split(".")[0]
             # assert base_name in self.all_labels.keys()
 
-            self.data[base_name] = {
-                "audio_path": audio_path,
-            }
+            self.data[base_name]["path"] = audio_path
 
         # # -------------------------------- load text -------------------------------- #
         for text_path in self.text_paths:
@@ -215,7 +213,7 @@ def get_data(**kwargs):
     dataset = IEMOCAP(**kwargs)
     df = pd.DataFrame(dataset.data.values())
     print("Found labels : ", df.emotion.unique())
-    print(df.head())
+    # print(df.head())
 
     # train_df, test_df = train_test_split(df, test_size=1-TRAIN_SPLIT, random_state=42, stratify=["emotion"])
 

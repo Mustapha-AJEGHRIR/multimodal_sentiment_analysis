@@ -5,6 +5,7 @@
 
 # from torch.utils.data import Dataset, DataLoader
 import torch.utils.data as tdata
+
 # from sklearn.model_selection import train_test_split
 import numpy as np
 import collections
@@ -15,6 +16,7 @@ import pandas as pd
 
 # -------------------------- Signal and media stuff -------------------------- #
 import scipy
+
 # from scipy.io import wavfile
 import scipy.signal
 
@@ -23,8 +25,10 @@ import scipy.signal
 # ----------------------------------- Other ---------------------------------- #
 import os
 from glob import glob
+
 # import json
 import regex as re
+
 # from tqdm import tqdm
 
 # --------------------------- Cross platform stuff --------------------------- #
@@ -66,6 +70,7 @@ DEFAULT_DATA_PATH = os.path.join(os.path.dirname(__file__), "../../data/")
 DATA_PATH = os.path.join(os.getenv("TMPDIR", DEFAULT_DATA_PATH), "iemocap/")
 # DATA_PATH = os.path.join(os.getenv("DATADIR", DEFAULT_DATA_PATH), "iemocap/")
 AUDIO_PATH = os.path.join(DATA_PATH, "session1-sentences-wav")
+VIDEO_PATH = os.path.join(DATA_PATH, "session1-dialog-avi")
 TRANSCRIPT_PATH = os.path.join(DATA_PATH, "session1-dialog-transcriptions")
 LABELS_PATH = os.path.join(DATA_PATH, "session1-dialog-EmoEvaluation/Categorical")
 
@@ -75,33 +80,6 @@ else:
     for path in [AUDIO_PATH, LABELS_PATH]:
         if not os.path.exists(path):
             raise Exception(f"Path {path} does not exist, make sure the data is correctly extracted")
-
-
-# ---------------------------------------------------------------------------- #
-#                                     Utils                                    #
-# ---------------------------------------------------------------------------- #
-# def speech_file_to_array_fn(path):
-#     speech_array, sampling_rate = torchaudio.load(path)
-#     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
-#     speech = resampler(speech_array).squeeze().numpy()
-#     return speech
-
-# def label_to_id(label, label_list):
-
-#     if len(label_list) > 0:
-#         return label_list.index(label) if label in label_list else -1
-
-#     return label
-
-# def preprocess_function(examples):
-#     speech_list = [speech_file_to_array_fn(path) for path in examples["path"]]
-#     target_list = [label_to_id(label, label_list) for label in examples["emotion"]]
-
-#     result = processor(speech_list, sampling_rate=target_sampling_rate)
-#     result["labels"] = list(target_list)
-#     # print(result.keys())
-
-#     return result
 
 
 def most_frequent(List):
@@ -143,8 +121,9 @@ class IEMOCAP(tdata.Dataset):
         self.output_type = output_type
 
         self.all_labels_names = sorted(glob(os.path.join(LABELS_PATH, "*.txt")))
-        self.audio_paths = sorted(glob(os.path.join(AUDIO_PATH, "*/*.wav")))
         self.text_paths = sorted(glob(os.path.join(TRANSCRIPT_PATH, "*.txt")))
+        self.audio_paths = sorted(glob(os.path.join(AUDIO_PATH, "*/*.wav")))
+        self.video_paths = sorted(glob(os.path.join(VIDEO_PATH, "*/*.avi")))
 
         self.all_labels = collections.defaultdict(list)
 
@@ -173,12 +152,12 @@ class IEMOCAP(tdata.Dataset):
                         "emotion": label,
                     }
 
-        # ----------------------------------- label ---------------------------------- #
+        # ----------------------------------- load audio ---------------------------------- #
         for audio_path in self.audio_paths:
             base_name = os.path.basename(audio_path).split(".")[0]
-            # assert base_name in self.all_labels.keys()
-
-            self.data[base_name]["path"] = audio_path
+            self.data[base_name] = {
+                "audio_path": audio_path,
+            }
 
         # # -------------------------------- load text -------------------------------- #
         for text_path in self.text_paths:
@@ -193,10 +172,14 @@ class IEMOCAP(tdata.Dataset):
                         self.data[seq_id]["end_time"] = end_time
                         self.data[seq_id]["text"] = text
 
-        # # -------------------------------- load audio -------------------------------- #
-        # for sentence_name in self.sentences_names:
-        #     audio, sample_rate = load_audio(sentence_name)
-        #     self.audio.append(audio)
+        # # -------------------------------- load video -------------------------------- #
+        # TODO: need to cut dialog videos according to sequence start and end time
+        # TODO: check https://github.com/IoannisKansizoglou/Iemocap-preprocess/blob/f2329ac892f1334ac743b985b2751d9b1431b3c8/extractionmapCreator.py
+        # for video_path in self.video_paths:
+        #     base_name = os.path.basename(video_path).split(".")[0]
+        #     self.data[base_name] = {
+        #         "video_path": video_path,
+        #     }
 
         # self.video_sequences = []
         # self.audio_sequences = []
